@@ -5,6 +5,7 @@ import { Home } from './pages/Home'
 import { AuthInit } from './components/AuthInit'
 import { SignUp } from './pages/SignUp'
 import { useState } from 'react'
+import { Callback } from './pages/Callback'
 
 /**
  * [WHY] 인증 초기화(AuthInit)가 완료된 후에만 라우팅을 렌더링
@@ -32,6 +33,7 @@ function App() {
           <Route path="/" element={<Login />} />
           <Route path="/home" element={<Home />} />
           <Route path="/signUp" element={<SignUp />} />
+          <Route path="/callback" element={<Callback />} />
         </Routes>
       )}
     </BrowserRouter>

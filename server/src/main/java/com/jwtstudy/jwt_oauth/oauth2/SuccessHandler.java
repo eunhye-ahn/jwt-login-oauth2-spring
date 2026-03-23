@@ -40,11 +40,14 @@ public class SuccessHandler implements AuthenticationSuccessHandler {
         //구글 유저 정보로 db 유저 정보 꺼내기
         /**
          * 시큐리티가 내부적으로 authentication에 구글이 준 유저 정보를 넣는다
-         * -> authentication.getPrincipal() 타입 -> Object
-         * -> getAttribute 메서드로 유저 정보를 꺼내기 위해 OAuth2User로 변환
+         *      -> authentication.getPrincipal() 타입 -> Object
+         *      -> getAttribute 메서드로 유저 정보를 꺼내기 위해 OAuth2User로 변환
+         *
+
          */
         OAuth2User oAuth2User =  (OAuth2User) authentication.getPrincipal();
         String email = oAuth2User.getAttribute("email");
+        System.out.println(email);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -58,12 +61,20 @@ public class SuccessHandler implements AuthenticationSuccessHandler {
                 .orElse(RefreshToken.build(user,refreshToken,jwtProvider.getRefreshTokenExpiry()));
         refreshTokenRepository.save(refreshTokenEntity);
 
-        response.setHeader("Authorization", "Bearer " + accessToken);
-
-        Cookie cookie = new Cookie("JWT", refreshToken);
+        /**
+         * [WHY] OAuth2는 리다이렉트로 동작
+         *      리다이렉트 : fetch와 달리 헤더와 바디 없이 주소만 바꿔주는 것 (302)
+         *      -> 헤더를 JS가 읽을 수 없어서 AT전달 불가
+         *      -> 대신 쿼리파라미터에 AT를 실어서 리액트로 전달
+         * [주의] RT는 HttpOnly 쿠키에 담겨있어서 자동으로 전달됨
+         */
+        Cookie cookie = new Cookie("refreshToken", refreshToken);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(60*60*24*7);
         response.addCookie(cookie);
+
+        response.sendRedirect("http://localhost:5173/callback?accessToken=" + accessToken);
+
     }
 }

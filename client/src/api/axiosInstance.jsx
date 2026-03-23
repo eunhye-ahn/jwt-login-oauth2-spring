@@ -41,7 +41,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        if (error.response?.status === 401) {
+        if (error.response?.status === 401 && !error.config.url.includes('/auth/reissue')) {
             const originalRequest = error.config;
             try {
                 console.log("응답인터셉터 401 감지완료")

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { reissueApi } from "../api/loginApi";
+import { getAccessToken } from "../api/axiosInstance";
 
 /**
  * [WHAT] 앱 최초 진입 시 인증 상태 초기화 컴포넌트
@@ -20,6 +21,11 @@ export const AuthInit = ({ onReady }) => {
 
     useEffect(() => {
         const initAuth = async () => {
+            if (getAccessToken()) {
+                onReady();
+                return;
+            }
+
             try {
                 await reissueApi();
             } catch (e) {
@@ -31,5 +37,5 @@ export const AuthInit = ({ onReady }) => {
         initAuth();
     }, []);
 
-    return null;
+    return;
 }

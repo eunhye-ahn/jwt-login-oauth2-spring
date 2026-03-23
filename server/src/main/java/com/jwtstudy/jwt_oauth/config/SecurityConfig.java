@@ -74,7 +74,7 @@ public class SecurityConfig {
                 //
                 .httpBasic(httpBasic->httpBasic.disable())
                 .authorizeHttpRequests(auth->auth
-                        .requestMatchers("/auth/**", "/oauth2/**").permitAll()
+                        .requestMatchers("/auth/**", "/oauth2/**", "/favicon.ico").permitAll()
                         .anyRequest().authenticated() //여기에 대한 설정을 CorsConfigurationSource << 얘가 해줌
 
                 )

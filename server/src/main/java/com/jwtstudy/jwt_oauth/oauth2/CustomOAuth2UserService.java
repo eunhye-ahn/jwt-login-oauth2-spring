@@ -33,6 +33,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
         //유저 db저장
         String email = userInfo.get("email").toString();
+        System.out.println("loadUser in : "+email);
 
         userRepository.findByEmail(email)
             .orElseGet(()->userRepository.save(User.builder()

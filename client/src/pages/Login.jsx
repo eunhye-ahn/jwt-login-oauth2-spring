@@ -94,6 +94,10 @@ function Login() {
                     }}>Login</button>
                 </form>
                 <div>
+                    <button onClick={() =>
+                        window.location.href = "http://localhost:8080/oauth2/authorization/google"}>Google 로그인</button>
+                </div>
+                <div>
                     <Link to='/signup'>SignUp</Link>
                 </div>
             </div>

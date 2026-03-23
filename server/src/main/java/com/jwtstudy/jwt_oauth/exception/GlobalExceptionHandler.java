@@ -11,6 +11,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponse> handleCustomException(CustomException e){
         ErrorCode errorCode = e.getErrorCode();
+        System.out.println(errorCode);
         //에러코드(status,message)를 들고다니면서 응답에 넣을때 쉽게 꺼내쓰기 위해
         return ResponseEntity.status(errorCode.getStatus())
                 .body(new ErrorResponse(
