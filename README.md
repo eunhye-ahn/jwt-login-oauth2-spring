@@ -1,67 +1,59 @@
-# JWT 구현 정리
+# OAuth2 연동 정리
+> 소셜 사용자 대신 내 서비스에게 유저 정보에 접근할 수 있는 권한을 주는 개방형 표준 인증 프로토콜
 
-## 1. 토큰 저장 전략
+## 1. 사용자 흐름
 
-| 구분 | 저장 위치 | 이유 |
-|------|----------|------|
-| Access Token | 메모리 (변수) | localStorage 저장 시 XSS 공격으로 탈취 가능 → 메모리에 저장해 JS 접근 차단 |
-| Refresh Token | httpOnly 쿠키 | JS로 접근 불가 → XSS 방어, 브라우저가 요청 시 자동 전송 |
+구글 로그인 버튼 클릭 window.location.href -> 브라우저 직접 이동
+구글 로그인 -> spring으로 리다이렉트 : security가 인증코드와 AT를 자동 교환함
+                                      =================================== > 이쪽은 구글에게 내 서비스를 등록으로 인증
 
----
+(시큐리티 설정 OAuth2 흐름을 커스텀해주어야 시큐리티가 이동
+인증완료 > 유저정보엔드포인트 : OAuth2UserService 구현체 > AuthenticationSuccessHandler 구현체)
 
-## 2. 재발급 전략 - 고정 RT 방식
+구현해야할 클래스는 두개
+- OAuth2UserService //구글에게 유저정보를 받아서 db에 저장하는 로직 구현
+  loadUser() : 유저 정보 수신 > db저장 > OAuth2User 반환
+- AuthenticationSuccessHandler //위에서 인증된 유저에게 JWT발급하고 클라이언트에게 전달하는 로직 구현
+  onAuthenticationSuccess(...) 오버라이딩 필수 : DB조회 -> AT/RT 발급 -> 리다이렉트
 
-> RT는 재발급 시 교체하지 않고 고정으로 유지
+## 2. URL 흐름
 
-| 상황 | 처리 방식 |
-|------|----------|
-| 새로고침 / 브라우저 재시작 | `useEffect`에서 `/reissue` 자동 호출 |
-| AT 만료 | axios interceptor 401 감지 → `/reissue` 후 재시도 |
-| RT 만료 | `/reissue` 실패 감지 → 로그인 페이지로 이동 |
+1. 버튼 클릭
+   http://localhost:8080/oauth2/authorization/google
+
+2. 구글 로그인 페이지로 리다이렉트
+   https://accounts.google.com/o/oauth2/auth?...
+
+3. 로그인 완료 → Spring으로 리다이렉트 (구글 콘솔에 등록한 리디렉션 URI)
+   http://localhost:8080/login/oauth2/code/google?code=...
+   code = ... => 인증코드
+   -> Spring Security가 이걸로 구글에 AT 요청 (자동)
+   -> AT로 유저 정보 요청 (자동)
+   -> loadUser() 호출
+   [주의] 여기서 AT는 Spring ↔ 구글 사이에서만 쓰이는 별도의 토큰 (유저 정보 가져올 때 사용)
+
+5. SuccessHandler 실행 → 리액트로 리다이렉트
+   http://localhost:5173/callback?accessToken=eyJhbG...
+
+6. /callback에서 AT 저장 → /home으로 이동
+   http://localhost:5173/home
 
 ---
 
 ## 3. 트러블슈팅
 
-### 브라우저 재시작 / 새로고침 시 로그인 유지 안되는 문제
+### 소셜 로그인 실패 401반환 문제
 
 **문제**
-> 브라우저 재시작 / 새로고침 시 로그인이 풀림
+> OAuth2 로그인으로 발급한 AT가 클라로 전달 안됨
 
 **원인**
-- AT는 메모리 저장 → 새로고침 시 초기화
-- RT 쿠키에 `maxAge` 미설정 → 세션 쿠키로 동작 → 브라우저 종료 시 쿠키 삭제
+- AT를 헤더에 담아서 전달 : 리다이렉트는 헤더,바디없이 Location만 전달
 
 **해결**
-- **서버** [영속 쿠키 적용]
-  - 쿠키 `maxAge` 7일 설정 → 브라우저 재시작 후에도 RT 유지
+- **서버**
+  - AT를 URL의 쿼리 파라미터로 전달
 
-- **클라이언트** [새로고침 시 AT 자동 재발급]
-  - `App`에서 `AuthInit` 완료 전까지 `Routes` 렌더링 차단
-  - `AuthInit`에서 `/reissue` 자동 호출 → RT로 새 AT 발급 → 로그인 상태 복구
-
-- **클라이언트** [AT 만료 자동 처리 - axios interceptor]
-  - AT 만료 요청 시 서버 401 응답
-  - response interceptor 401 감지 → `/reissue` 호출 → 새 AT 발급
-  - 새 AT로 실패한 요청 자동 재시도 → 사용자 경험 끊김 없이 유지
-
-
-### token=null 시 403 반환 문제
-
-**문제**
-> token=null일 경우 JWT 필터에서 인증정보 없이 통과 → 인가 단계에서 403 반환
-
-**원인**
-```
-token=null
-→ 필터 통과 (SecurityContext 비어있음)
-→ .anyRequest().authenticated() 에서 막힘
-→ Spring Security 예외 판단
-    ├── 인증 안됨 (익명사용자) → AuthenticationException → AuthenticationEntryPoint
-    └── 인증은 됐는데 권한 없음 → AccessDeniedException → AccessDeniedHandler
-```
-- `AuthenticationEntryPoint` 미설정 시 Spring Security 기본 동작으로 403 반환
-
-**해결**
-- `authenticationEntryPoint` 추가 → 인증 실패 시 명시적으로 401 반환
-
+- **클라이언트**
+  - 보안 위험 -> AT 메모리 저장 후 window.history.replaceState로 브라우저 히스토리에서 삭제
+    
