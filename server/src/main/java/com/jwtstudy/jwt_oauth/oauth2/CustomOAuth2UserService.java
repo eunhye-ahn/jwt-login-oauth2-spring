@@ -1,6 +1,8 @@
-package com.jwtstudy.jwt_oauth.service;
+package com.jwtstudy.jwt_oauth.oauth2;
 
 import com.jwtstudy.jwt_oauth.domain.User;
+import com.jwtstudy.jwt_oauth.jwt.JwtProvider;
+import com.jwtstudy.jwt_oauth.repository.RefreshTokenRepository;
 import com.jwtstudy.jwt_oauth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -22,14 +24,23 @@ import java.util.Map;
 @Service
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User>{
     private final UserRepository userRepository;
+    private final JwtProvider jwtProvider;
+    private final RefreshTokenRepository refreshTokenRepository;
     //유저정보 받기
     public OAuth2User loadUser(OAuth2UserRequest userRequest){
         OAuth2User oauth2User = new DefaultOAuth2UserService().loadUser(userRequest);
         Map<String, Object> userInfo = oauth2User.getAttributes();
-        //콘솔에 찍어서확인해보기
-        System.out.println(userInfo);
-        System.out.println(userInfo.get("name"));
-        System.out.println(userInfo.get("email"));
+
+        //유저 db저장
+        String email = userInfo.get("email").toString();
+
+        userRepository.findByEmail(email)
+            .orElseGet(()->userRepository.save(User.builder()
+                    .name(userInfo.get("name").toString())
+                    .email(userInfo.get("email").toString())
+                    .password(null)
+                    .build())
+            );
 
         return oauth2User;
     }

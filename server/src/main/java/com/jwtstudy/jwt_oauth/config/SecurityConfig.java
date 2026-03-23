@@ -1,7 +1,8 @@
 package com.jwtstudy.jwt_oauth.config;
 
 import com.jwtstudy.jwt_oauth.jwt.JwtFilter;
-import com.jwtstudy.jwt_oauth.service.CustomOAuth2UserService;
+import com.jwtstudy.jwt_oauth.oauth2.CustomOAuth2UserService;
+import com.jwtstudy.jwt_oauth.oauth2.SuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -34,6 +35,7 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final SuccessHandler successHandler;
     /**
      * [WHAT] SpringSecurity의 핵심 필터 체인 설정
      *          Http요청이 들어오면 여기서 정의한 순서대로 처리됨
@@ -82,7 +84,7 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService))
-//                        .successHandler(oauth2SuccessHandler) //로그인성공 -> JWT발급
+                        .successHandler(successHandler) //로그인성공 -> JWT발급
                 )
 
                 // Q :  token=null일 경우, jwtfilter 에서 인증정보없이 필터가 통과되어서
